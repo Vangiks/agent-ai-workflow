@@ -33,6 +33,9 @@ RUN mkdir -p /home/agent/repos
 
 WORKDIR /home/agent
 
+# Switch back to root so Sandcastle can run chown on the bind-mounted workspace
+USER root
+
 # In worktree sandbox mode, Sandcastle bind-mounts the git worktree at /home/agent/workspace
 # and overrides the working directory to /home/agent/workspace at container start.
 # Structure your Dockerfile so that /home/agent/workspace can serve as the project root.
