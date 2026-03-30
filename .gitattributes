@@ -1,0 +1,14 @@
+# Нормализуем окончания строк к LF во всём репозитории.
+# Git будет хранить LF и при checkout на Windows тоже выдаст LF.
+* text=auto eol=lf
+
+# Явно исключаем бинарники от конвертации
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

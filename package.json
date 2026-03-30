@@ -1,0 +1,18 @@
+{
+  "name": "agent-ai-workflow",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "ralph": "npx tsx .sandcastle/main.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@ai-hero/sandcastle": "^0.1.6",
+    "sandcastle": "^1.3.3",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "pnpm@9.14.4"
+}
