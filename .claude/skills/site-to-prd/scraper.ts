@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
-import { mkdir } from 'fs/promises';
+import { mkdir, writeFile } from 'fs/promises';
 import { resolve, join } from 'path';
+import { buildSectionTree, extractTildaBlockId, type RawSection, type PageData } from './page-analyzer.js';
 
 export interface ParsedArgs {
   url: string;
@@ -50,6 +51,54 @@ export function parseArgs(args: string[]): ParsedArgs {
   };
 }
 
+/**
+ * Извлекает секции Tilda из DOM страницы через Playwright evaluate.
+ */
+async function extractPageSections(
+  page: import('playwright').Page,
+): Promise<RawSection[]> {
+  return page.evaluate(() => {
+    const records = document.querySelectorAll('.t-rec');
+    const results: Array<{
+      tildaBlockId: string;
+      classes: string[];
+      tagName: string;
+      childCount: number;
+      hasImages: boolean;
+      imageCount: number;
+      hasVideo: boolean;
+      hasForm: boolean;
+      hasHeading: boolean;
+      textLength: number;
+    }> = [];
+
+    records.forEach((el) => {
+      const classes = Array.from(el.classList);
+      // Ищем класс вида t{число}
+      const tildaBlockId =
+        classes.find((cls) => /^t\d+$/.test(cls)) ?? '';
+
+      results.push({
+        tildaBlockId,
+        classes,
+        tagName: el.tagName.toLowerCase(),
+        childCount: el.children.length,
+        hasImages: el.querySelectorAll('img').length > 0,
+        imageCount: el.querySelectorAll('img').length,
+        hasVideo:
+          el.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"]')
+            .length > 0,
+        hasForm: el.querySelectorAll('form, input, textarea').length > 0,
+        hasHeading:
+          el.querySelectorAll('h1, h2, h3, h4, h5, h6').length > 0,
+        textLength: (el.textContent ?? '').trim().length,
+      });
+    });
+
+    return results;
+  });
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const outputDir = resolve(args.output);
@@ -71,6 +120,24 @@ async function main() {
   const screenshotPath = join(outputDir, 'desktop.png');
   await page.screenshot({ path: screenshotPath, fullPage: false });
   console.log(`Скриншот сохранён: ${screenshotPath}`);
+
+  // Анализируем DOM секций
+  const title = await page.title();
+  const rawSections = await extractPageSections(page);
+  const sections = buildSectionTree(rawSections);
+
+  console.log(`Обнаружено секций: ${sections.length}`);
+
+  const pageData: PageData = {
+    url: args.url,
+    title,
+    sections,
+  };
+
+  const pagesJson: PageData[] = [pageData];
+  const pagesJsonPath = join(outputDir, 'pages.json');
+  await writeFile(pagesJsonPath, JSON.stringify(pagesJson, null, 2), 'utf-8');
+  console.log(`pages.json сохранён: ${pagesJsonPath}`);
 
   await browser.close();
 }
