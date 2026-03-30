@@ -71,4 +71,50 @@ describe('useTodos', () => {
     expect(result.current.todos).toHaveLength(1)
     expect(result.current.todos[0].text).toBe('Existing')
   })
+
+  it('toggleTodo переключает completed', () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => { result.current.addTodo('Task') })
+    const id = result.current.todos[0].id
+    act(() => { result.current.toggleTodo(id) })
+    expect(result.current.todos[0].completed).toBe(true)
+    act(() => { result.current.toggleTodo(id) })
+    expect(result.current.todos[0].completed).toBe(false)
+  })
+
+  it('toggleTodo сохраняет изменение в localStorage', () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => { result.current.addTodo('Persist toggle') })
+    const id = result.current.todos[0].id
+    act(() => { result.current.toggleTodo(id) })
+    const stored = JSON.parse(localStorage.getItem('todos') ?? '[]')
+    expect(stored[0].completed).toBe(true)
+  })
+
+  it('deleteTodo удаляет задачу из списка', () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => { result.current.addTodo('To delete') })
+    const id = result.current.todos[0].id
+    act(() => { result.current.deleteTodo(id) })
+    expect(result.current.todos).toHaveLength(0)
+  })
+
+  it('deleteTodo удаляет задачу из localStorage', () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => { result.current.addTodo('To delete') })
+    const id = result.current.todos[0].id
+    act(() => { result.current.deleteTodo(id) })
+    const stored = JSON.parse(localStorage.getItem('todos') ?? '[]')
+    expect(stored).toHaveLength(0)
+  })
+
+  it('deleteTodo удаляет только нужную задачу', () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => { result.current.addTodo('Keep') })
+    act(() => { result.current.addTodo('Delete') })
+    const idToDelete = result.current.todos[0].id // 'Delete' prepended
+    act(() => { result.current.deleteTodo(idToDelete) })
+    expect(result.current.todos).toHaveLength(1)
+    expect(result.current.todos[0].text).toBe('Keep')
+  })
 })

@@ -3,7 +3,7 @@ import { TodoInput } from './components/TodoInput'
 import { TodoList } from './components/TodoList'
 
 function App() {
-  const { todos, addTodo } = useTodos()
+  const { todos, addTodo, toggleTodo, deleteTodo } = useTodos()
 
   return (
     <div className="min-h-screen bg-background">
@@ -11,7 +11,7 @@ function App() {
         <h1 className="mb-8 text-3xl font-bold text-foreground">Список задач</h1>
         <div className="space-y-4">
           <TodoInput onAdd={addTodo} />
-          <TodoList todos={todos} />
+          <TodoList todos={todos} onToggle={toggleTodo} onDelete={deleteTodo} />
         </div>
       </div>
     </div>

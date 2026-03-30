@@ -35,5 +35,13 @@ export function useTodos() {
     setTodos((prev) => [todo, ...prev])
   }
 
-  return { todos, addTodo }
+  function toggleTodo(id: string) {
+    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)))
+  }
+
+  function deleteTodo(id: string) {
+    setTodos((prev) => prev.filter((t) => t.id !== id))
+  }
+
+  return { todos, addTodo, toggleTodo, deleteTodo }
 }
