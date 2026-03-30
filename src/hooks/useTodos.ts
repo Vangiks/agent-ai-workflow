@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
 export interface Todo {
   id: string
@@ -6,6 +6,8 @@ export interface Todo {
   completed: boolean
   createdAt: number
 }
+
+export type FilterType = 'all' | 'active' | 'completed'
 
 const STORAGE_KEY = 'todos'
 
@@ -18,6 +20,8 @@ export function useTodos() {
       return []
     }
   })
+
+  const [filter, setFilter] = useState<FilterType>('all')
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(todos))
@@ -43,5 +47,13 @@ export function useTodos() {
     setTodos((prev) => prev.filter((t) => t.id !== id))
   }
 
-  return { todos, addTodo, toggleTodo, deleteTodo }
+  const filteredTodos = useMemo(() => {
+    if (filter === 'active') return todos.filter((t) => !t.completed)
+    if (filter === 'completed') return todos.filter((t) => t.completed)
+    return todos
+  }, [todos, filter])
+
+  const activeCount = useMemo(() => todos.filter((t) => !t.completed).length, [todos])
+
+  return { todos, filteredTodos, filter, setFilter, activeCount, addTodo, toggleTodo, deleteTodo }
 }

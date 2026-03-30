@@ -110,4 +110,57 @@ describe('useTodos', () => {
     const stored = JSON.parse(localStorage.getItem('todos') ?? '[]')
     expect(stored).toHaveLength(0)
   })
+
+  describe('filter', () => {
+    it('returns "all" as default filter', () => {
+      const { result } = renderHook(() => useTodos())
+      expect(result.current.filter).toBe('all')
+    })
+
+    it('setFilter changes the active filter', () => {
+      const { result } = renderHook(() => useTodos())
+      act(() => { result.current.setFilter('active') })
+      expect(result.current.filter).toBe('active')
+      act(() => { result.current.setFilter('completed') })
+      expect(result.current.filter).toBe('completed')
+      act(() => { result.current.setFilter('all') })
+      expect(result.current.filter).toBe('all')
+    })
+
+    it('filteredTodos returns all todos when filter is "all"', () => {
+      const { result } = renderHook(() => useTodos())
+      act(() => { result.current.addTodo('Active') })
+      act(() => { result.current.addTodo('Done') })
+      act(() => { result.current.toggleTodo(result.current.todos.find(t => t.text === 'Done')!.id) })
+      expect(result.current.filteredTodos).toHaveLength(2)
+    })
+
+    it('filteredTodos returns only active todos when filter is "active"', () => {
+      const { result } = renderHook(() => useTodos())
+      act(() => { result.current.addTodo('Active') })
+      act(() => { result.current.addTodo('Done') })
+      act(() => { result.current.toggleTodo(result.current.todos.find(t => t.text === 'Done')!.id) })
+      act(() => { result.current.setFilter('active') })
+      expect(result.current.filteredTodos).toHaveLength(1)
+      expect(result.current.filteredTodos[0].text).toBe('Active')
+    })
+
+    it('filteredTodos returns only completed todos when filter is "completed"', () => {
+      const { result } = renderHook(() => useTodos())
+      act(() => { result.current.addTodo('Active') })
+      act(() => { result.current.addTodo('Done') })
+      act(() => { result.current.toggleTodo(result.current.todos.find(t => t.text === 'Done')!.id) })
+      act(() => { result.current.setFilter('completed') })
+      expect(result.current.filteredTodos).toHaveLength(1)
+      expect(result.current.filteredTodos[0].text).toBe('Done')
+    })
+
+    it('filter is not saved to localStorage', () => {
+      const { result } = renderHook(() => useTodos())
+      act(() => { result.current.setFilter('active') })
+      // filter should not appear in localStorage
+      const stored = localStorage.getItem('todos')
+      expect(stored).not.toContain('active')
+    })
+  })
 })
