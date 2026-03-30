@@ -1,6 +1,7 @@
 import { chromium, type Page } from 'playwright';
 import { mkdir, writeFile } from 'fs/promises';
 import { resolve, join } from 'path';
+import { buildSectionTree, extractTildaBlockId, type RawSection, type PageData } from './page-analyzer.js';
 
 export interface ParsedArgs {
   url: string;
@@ -182,6 +183,54 @@ async function takeScreenshots(
   }
 }
 
+/**
+ * Извлекает секции Tilda из DOM страницы через Playwright evaluate.
+ */
+async function extractPageSections(
+  page: Page,
+): Promise<RawSection[]> {
+  return page.evaluate(() => {
+    const records = document.querySelectorAll('.t-rec');
+    const results: Array<{
+      tildaBlockId: string;
+      classes: string[];
+      tagName: string;
+      childCount: number;
+      hasImages: boolean;
+      imageCount: number;
+      hasVideo: boolean;
+      hasForm: boolean;
+      hasHeading: boolean;
+      textLength: number;
+    }> = [];
+
+    records.forEach((el) => {
+      const classes = Array.from(el.classList);
+      // Ищем класс вида t{число}
+      const tildaBlockId =
+        classes.find((cls) => /^t\d+$/.test(cls)) ?? '';
+
+      results.push({
+        tildaBlockId,
+        classes,
+        tagName: el.tagName.toLowerCase(),
+        childCount: el.children.length,
+        hasImages: el.querySelectorAll('img').length > 0,
+        imageCount: el.querySelectorAll('img').length,
+        hasVideo:
+          el.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"]')
+            .length > 0,
+        hasForm: el.querySelectorAll('form, input, textarea').length > 0,
+        hasHeading:
+          el.querySelectorAll('h1, h2, h3, h4, h5, h6').length > 0,
+        textLength: (el.textContent ?? '').trim().length,
+      });
+    });
+
+    return results;
+  });
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const outputDir = resolve(args.output);
@@ -196,7 +245,7 @@ async function main() {
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   });
 
-  const pages = await bfsCrawl(args.url, args.depth, async (url) => {
+  const crawlResults = await bfsCrawl(args.url, args.depth, async (url) => {
     const page = await context.newPage();
     console.log(`Загружаю: ${url}`);
     await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
@@ -211,12 +260,30 @@ async function main() {
     return { title, links };
   });
 
+  // Анализируем DOM секций для стартовой страницы
+  const startPage = await context.newPage();
+  await startPage.goto(args.url, { waitUntil: 'networkidle', timeout: 30000 });
+  const startTitle = await startPage.title();
+  const rawSections = await extractPageSections(startPage);
+  const sections = buildSectionTree(rawSections);
+  await startPage.close();
+
+  console.log(`Обнаружено секций: ${sections.length}`);
+
+  // Формируем pages.json в расширенном формате с секциями для стартовой страницы
+  const pagesData: PageData[] = crawlResults.map((p) => {
+    if (p.url === args.url) {
+      return { url: p.url, title: startTitle, sections };
+    }
+    return { url: p.url, title: p.title, sections: [] };
+  });
+
   await browser.close();
 
   // Save pages.json
   const pagesJsonPath = join(outputDir, 'pages.json');
-  await writeFile(pagesJsonPath, JSON.stringify(pages, null, 2), 'utf-8');
-  console.log(`pages.json сохранён: ${pagesJsonPath} (${pages.length} страниц)`);
+  await writeFile(pagesJsonPath, JSON.stringify(pagesData, null, 2), 'utf-8');
+  console.log(`pages.json сохранён: ${pagesJsonPath} (${pagesData.length} страниц)`);
 
   // Take responsive screenshots of the start page
   await takeScreenshots(args.url, screenshotsDir);

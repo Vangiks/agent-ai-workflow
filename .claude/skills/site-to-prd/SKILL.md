@@ -27,20 +27,48 @@
 2. Обходит страницы BFS до глубины `--depth` (default: 2)
 3. Собирает внутренние ссылки (`<a href>`) с каждой страницы
 4. Дедуплицирует URL — каждая страница посещается один раз
-5. Сохраняет `pages.json` с массивом страниц: `url`, `depth`, `title`
-6. Для стартовой страницы делает два full-page скриншота:
+5. Анализирует DOM стартовой страницы: ищет `.t-rec` элементы (Tilda блоки)
+6. Маппит найденные блоки на семантические типы и NextJS компоненты
+7. Сохраняет `pages.json` с массивом страниц (url, title, sections)
+8. Для стартовой страницы делает два full-page скриншота:
    - Desktop (1440px): `screenshots/{slug}-desktop.png`
    - Mobile (375px): `screenshots/{slug}-mobile.png`
-7. Перед каждым скриншотом выполняет авто-скролл до конца страницы и ожидает `networkidle`
+9. Перед каждым скриншотом выполняет авто-скролл до конца страницы и ожидает `networkidle`
 
 ## Формат pages.json
 
 ```json
 [
-  { "url": "https://example.com", "depth": 1, "title": "Home" },
-  { "url": "https://example.com/about", "depth": 2, "title": "About" }
+  {
+    "url": "https://example.com",
+    "title": "Page Title",
+    "sections": [
+      {
+        "tildaBlockId": "t396",
+        "semanticType": "hero",
+        "componentName": "HeroSection",
+        "stackRecommendation": "Framer Motion для анимации, shadcn/ui Button для CTA"
+      },
+      {
+        "tildaBlockId": "t99999",
+        "semanticType": "custom",
+        "componentName": "CustomSection",
+        "stackRecommendation": "Tailwind CSS, shadcn/ui",
+        "domDescription": "Тег: <div>; Классы: t-rec, t99999; ..."
+      }
+    ]
+  },
+  { "url": "https://example.com/about", "title": "About", "sections": [] }
 ]
 ```
+
+### Поля секции
+
+- `tildaBlockId` — ID Tilda блока (класс вида `t{число}`)
+- `semanticType` — семантический тип: `hero`, `header`, `features`, `testimonials`, `footer`, `cta`, `gallery`, `pricing`, `team`, `faq`, `contact`, `text`, `video`, `form`, `countdown`, `stats`, `partners`, `menu`, `custom`
+- `componentName` — предлагаемое имя NextJS компонента
+- `stackRecommendation` — рекомендация из стека (shadcn, Framer Motion и т.д.)
+- `domDescription` — описание DOM структуры (только для блоков типа `custom` и нераспознанных)
 
 ## Инструкция для Claude
 
@@ -56,4 +84,5 @@
    npx tsx .claude/skills/site-to-prd/scraper.ts <URL> --output <папка> [--depth <глубина>]
    ```
 4. Сообщи пользователю где сохранены `pages.json` и скриншоты (папка `<output>/screenshots/`)
-5. Если нужно сгенерировать PRD — проанализируй pages.json и скриншоты, создай документ в папке `--output/prd.md`
+5. Проанализируй `pages.json` — покажи пользователю структуру страниц и предложенные компоненты
+6. Если нужно сгенерировать PRD — проанализируй pages.json и скриншоты, создай документ в папке `--output/prd.md`
