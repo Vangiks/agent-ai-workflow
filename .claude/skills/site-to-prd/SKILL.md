@@ -29,11 +29,28 @@
 4. Дедуплицирует URL — каждая страница посещается один раз
 5. Анализирует DOM стартовой страницы: ищет `.t-rec` элементы (Tilda блоки)
 6. Маппит найденные блоки на семантические типы и NextJS компоненты
-7. Сохраняет `pages.json` с массивом страниц (url, title, sections)
-8. Для стартовой страницы делает два full-page скриншота:
-   - Desktop (1440px): `screenshots/{slug}-desktop.png`
-   - Mobile (375px): `screenshots/{slug}-mobile.png`
-9. Перед каждым скриншотом выполняет авто-скролл до конца страницы и ожидает `networkidle`
+7. Извлекает `<meta>` теги, Open Graph данные и favicon → `meta.json`
+8. Скачивает все изображения в `assets/` с оригинальными именами файлов → `images.json`
+9. Сохраняет `pages.json` с массивом страниц (url, title, sections)
+10. Для стартовой страницы делает два full-page скриншота:
+    - Desktop (1440px): `screenshots/{slug}-desktop.png`
+    - Mobile (375px): `screenshots/{slug}-mobile.png`
+11. Перед каждым скриншотом выполняет авто-скролл до конца страницы и ожидает `networkidle`
+
+## Структура вывода
+
+```
+<output>/
+├── pages.json          — массив страниц с секциями Tilda
+├── meta.json           — title, description, keywords, viewport, OG, favicon
+├── images.json         — маппинг URL → локальные пути, alt, размеры
+├── assets/             — скачанные изображения
+│   ├── logo.png
+│   └── ...
+└── screenshots/
+    ├── {slug}-desktop.png
+    └── {slug}-mobile.png
+```
 
 ## Формат pages.json
 
@@ -83,6 +100,6 @@
    ```
    npx tsx .claude/skills/site-to-prd/scraper.ts <URL> --output <папка> [--depth <глубина>]
    ```
-4. Сообщи пользователю где сохранены `pages.json` и скриншоты (папка `<output>/screenshots/`)
+4. Сообщи пользователю где сохранены результаты: `pages.json`, `meta.json`, `images.json`, скриншоты (папка `<output>/screenshots/`), изображения (папка `<output>/assets/`)
 5. Проанализируй `pages.json` — покажи пользователю структуру страниц и предложенные компоненты
-6. Если нужно сгенерировать PRD — проанализируй pages.json и скриншоты, создай документ в папке `--output/prd.md`
+6. Если нужно сгенерировать PRD — проанализируй pages.json, meta.json и скриншоты, создай документ в папке `--output/prd.md`
