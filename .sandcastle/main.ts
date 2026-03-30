@@ -129,7 +129,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     issues.map(async issue => {
       const result = await sandcastle.run({
         hooks,
-        copyToSandbox,
+        // copyToSandbox,
         name: `Implementer #${issue.number}`,
         // Give each agent plenty of room to implement and iterate on tests.
         maxIterations: 100,
@@ -154,7 +154,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
       if (result.commits.length > 0) {
         await sandcastle.run({
           hooks,
-          copyToSandbox,
+          // copyToSandbox,
           name: `Reviewer #${issue.number}`,
           // Opus for review: deeper reasoning catches subtle issues.
           model: 'claude-opus-4-6',
@@ -230,7 +230,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
    */
   await sandcastle.run({
     hooks,
-    copyToSandbox,
+    // copyToSandbox,
     name: 'merger',
     maxIterations: 10,
     // Sonnet is sufficient for merge conflict resolution.
