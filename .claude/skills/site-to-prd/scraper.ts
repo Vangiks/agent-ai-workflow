@@ -87,16 +87,9 @@ export function parseArgs(args: string[]): ParsedArgs {
 
 export function getImageFilename(url: string): string {
   try {
-    const parsed = new URL(url);
-    const pathname = parsed.pathname;
-    const segments = pathname.split('/').filter(Boolean);
+    const segments = new URL(url).pathname.split('/').filter(Boolean);
     const last = segments[segments.length - 1];
-    if (last && last.includes('.')) {
-      return last;
-    }
-    if (last) {
-      return last;
-    }
+    if (last) return last;
   } catch {
     // not a valid URL
   }
@@ -251,7 +244,7 @@ async function extractInternalLinks(page: Page, origin: string): Promise<string[
   });
 }
 
-function resolveFilenameConflict(url: string, usedFilenames: Set<string>): string {
+export function resolveFilenameConflict(url: string, usedFilenames: Set<string>): string {
   const base = getImageFilename(url);
   if (!usedFilenames.has(base)) {
     usedFilenames.add(base);

@@ -6,6 +6,7 @@ import {
   buildMetaData,
   deduplicateImages,
   mergeMeta,
+  resolveFilenameConflict,
   type RawPageMeta,
   type RawImage,
   type MetaData,
@@ -279,5 +280,156 @@ describe('mergeMeta', () => {
     const result = mergeMeta(metas);
     expect(result.og['og:title']).toBe('Page 1');
     expect(result.og['og:image']).toBe('img.jpg');
+  });
+});
+
+describe('getImageFilename — edge cases', () => {
+  it('игнорирует hash fragment в URL', () => {
+    expect(getImageFilename('https://example.com/img.png#section')).toBe('img.png');
+  });
+
+  it('возвращает сегмент без расширения', () => {
+    expect(getImageFilename('https://example.com/images')).toBe('images');
+  });
+
+  it('обрабатывает URL с кодированными символами', () => {
+    expect(getImageFilename('https://example.com/my%20image.png')).toBe('my%20image.png');
+  });
+});
+
+describe('buildMetaData — edge cases', () => {
+  it('последний meta тег с тем же name перезаписывает предыдущий в allMeta', () => {
+    const raw: RawPageMeta = {
+      title: null,
+      metaTags: [
+        { name: 'description', property: null, content: 'first' },
+        { name: 'description', property: null, content: 'second' },
+      ],
+      links: [],
+    };
+    const result = buildMetaData(raw);
+    // allMeta и description оба перезаписываются последним значением (last-wins)
+    expect(result.allMeta['description']).toBe('second');
+    expect(result.description).toBe('second');
+  });
+
+  it('пропускает meta теги с пустым content', () => {
+    const raw: RawPageMeta = {
+      title: null,
+      metaTags: [
+        { name: 'description', property: null, content: '' },
+      ],
+      links: [],
+    };
+    const result = buildMetaData(raw);
+    expect(result.description).toBeNull();
+    expect(result.allMeta).toEqual({});
+  });
+
+  it('пропускает meta теги с null content', () => {
+    const raw: RawPageMeta = {
+      title: null,
+      metaTags: [
+        { name: 'description', property: null, content: null },
+      ],
+      links: [],
+    };
+    const result = buildMetaData(raw);
+    expect(result.description).toBeNull();
+  });
+
+  it('не извлекает favicon из link без rel', () => {
+    const raw: RawPageMeta = {
+      title: null,
+      metaTags: [],
+      links: [{ rel: null, href: '/favicon.ico' }],
+    };
+    expect(buildMetaData(raw).favicon).toBeNull();
+  });
+
+  it('не извлекает favicon из link без href', () => {
+    const raw: RawPageMeta = {
+      title: null,
+      metaTags: [],
+      links: [{ rel: 'icon', href: null }],
+    };
+    expect(buildMetaData(raw).favicon).toBeNull();
+  });
+
+  it('обрабатывает apple-touch-icon без захвата как favicon', () => {
+    const raw: RawPageMeta = {
+      title: null,
+      metaTags: [],
+      links: [{ rel: 'apple-touch-icon', href: '/apple-icon.png' }],
+    };
+    expect(buildMetaData(raw).favicon).toBeNull();
+  });
+});
+
+describe('resolveFilenameConflict', () => {
+  it('возвращает оригинальное имя если нет конфликта', () => {
+    const used = new Set<string>();
+    expect(resolveFilenameConflict('https://example.com/logo.png', used)).toBe('logo.png');
+    expect(used.has('logo.png')).toBe(true);
+  });
+
+  it('добавляет суффикс _1 при конфликте', () => {
+    const used = new Set<string>(['logo.png']);
+    expect(resolveFilenameConflict('https://cdn.example.com/logo.png', used)).toBe('logo_1.png');
+    expect(used.has('logo_1.png')).toBe(true);
+  });
+
+  it('инкрементирует суффикс при множественных конфликтах', () => {
+    const used = new Set<string>(['logo.png', 'logo_1.png']);
+    expect(resolveFilenameConflict('https://other.com/logo.png', used)).toBe('logo_2.png');
+  });
+
+  it('обрабатывает файл без расширения', () => {
+    const used = new Set<string>(['image']);
+    expect(resolveFilenameConflict('https://example.com/', used)).toBe('image_1');
+  });
+
+  it('обрабатывает файл с несколькими точками', () => {
+    const used = new Set<string>(['file.min.js']);
+    expect(resolveFilenameConflict('https://example.com/file.min.js', used)).toBe('file.min_1.js');
+  });
+});
+
+describe('mergeMeta — edge cases', () => {
+  it('корректно обрабатывает один элемент', () => {
+    const single: MetaData = {
+      title: 'Only Page',
+      description: 'desc',
+      keywords: 'kw',
+      viewport: 'vp',
+      og: { 'og:title': 'OG' },
+      favicon: '/fav.ico',
+      allMeta: { description: 'desc' },
+    };
+    const result = mergeMeta([single]);
+    expect(result.title).toBe('Only Page');
+    expect(result.description).toBe('desc');
+    expect(result.og['og:title']).toBe('OG');
+    expect(result.favicon).toBe('/fav.ico');
+    expect(result.allMeta['description']).toBe('desc');
+  });
+
+  it('объединяет allMeta из нескольких страниц (первое значение приоритетно)', () => {
+    const metas: MetaData[] = [
+      {
+        title: null, description: null, keywords: null, viewport: null,
+        og: {}, favicon: null,
+        allMeta: { 'author': 'Alice', 'generator': 'Tool1' },
+      },
+      {
+        title: null, description: null, keywords: null, viewport: null,
+        og: {}, favicon: null,
+        allMeta: { 'author': 'Bob', 'theme-color': '#fff' },
+      },
+    ];
+    const result = mergeMeta(metas);
+    expect(result.allMeta['author']).toBe('Alice');
+    expect(result.allMeta['generator']).toBe('Tool1');
+    expect(result.allMeta['theme-color']).toBe('#fff');
   });
 });
