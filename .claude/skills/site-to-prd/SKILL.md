@@ -24,9 +24,56 @@
 ## Что делает skill
 
 1. Запускает scraper через Playwright
-2. Загружает страницу и делает desktop скриншот (1280×800)
-3. Сохраняет скриншот в папку `--output` как `desktop.png`
-4. (В будущих версиях) Обходит страницы до глубины `--depth`, собирает текст и генерирует PRD
+2. Загружает страницу и делает desktop скриншот (1280×800), сохраняет как `desktop.png`
+3. Извлекает все `<meta>` теги, Open Graph данные и favicon → `meta.json`
+4. Скачивает все изображения в `assets/` с оригинальными именами файлов → `images.json`
+5. При `--depth > 1` обходит внутренние страницы того же домена (BFS), дедуплицирует данные
+6. (В будущих версиях) Анализирует скриншоты и создаёт PRD
+
+## Структура вывода
+
+```
+<output>/
+├── desktop.png         — скриншот главной страницы
+├── images.json         — маппинг URL → локальные пути, alt, размеры
+├── meta.json           — title, description, keywords, viewport, OG, favicon
+└── assets/
+    ├── logo.png
+    ├── hero.jpg
+    └── ...
+```
+
+### images.json
+
+```json
+[
+  {
+    "originalUrl": "https://example.com/img/logo.png",
+    "localPath": "assets/logo.png",
+    "alt": "Company logo",
+    "width": 200,
+    "height": 60
+  }
+]
+```
+
+### meta.json
+
+```json
+{
+  "title": "Example Site",
+  "description": "Site description",
+  "keywords": "foo, bar",
+  "viewport": "width=device-width, initial-scale=1",
+  "og": {
+    "og:title": "Example Site",
+    "og:description": "OG description",
+    "og:image": "https://example.com/og.jpg"
+  },
+  "favicon": "/favicon.ico",
+  "allMeta": { ... }
+}
+```
 
 ## Инструкция для Claude
 
@@ -37,5 +84,5 @@
    ```
    npx tsx .claude/skills/site-to-prd/scraper.ts <URL> --output <папка> [--depth <глубина>]
    ```
-3. Сообщи пользователю где сохранены скриншоты
-4. Если нужно сгенерировать PRD — проанализируй скриншоты и создай документ в папке `--output/prd.md`
+3. Сообщи пользователю где сохранены результаты (скриншот, images.json, meta.json, assets/)
+4. Если нужно сгенерировать PRD — проанализируй скриншоты и данные, создай документ в `--output/prd.md`
