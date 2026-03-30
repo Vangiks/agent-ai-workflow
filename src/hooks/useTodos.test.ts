@@ -71,4 +71,43 @@ describe('useTodos', () => {
     expect(result.current.todos).toHaveLength(1)
     expect(result.current.todos[0].text).toBe('Existing')
   })
+
+  it('toggleTodo flips completed status', () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => { result.current.addTodo('Toggle me') })
+    const id = result.current.todos[0].id
+    expect(result.current.todos[0].completed).toBe(false)
+    act(() => { result.current.toggleTodo(id) })
+    expect(result.current.todos[0].completed).toBe(true)
+    act(() => { result.current.toggleTodo(id) })
+    expect(result.current.todos[0].completed).toBe(false)
+  })
+
+  it('toggleTodo persists to localStorage', () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => { result.current.addTodo('Persist toggle') })
+    const id = result.current.todos[0].id
+    act(() => { result.current.toggleTodo(id) })
+    const stored = JSON.parse(localStorage.getItem('todos') ?? '[]')
+    expect(stored[0].completed).toBe(true)
+  })
+
+  it('deleteTodo removes the todo', () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => { result.current.addTodo('Delete me') })
+    act(() => { result.current.addTodo('Keep me') })
+    const deleteId = result.current.todos.find((t) => t.text === 'Delete me')!.id
+    act(() => { result.current.deleteTodo(deleteId) })
+    expect(result.current.todos).toHaveLength(1)
+    expect(result.current.todos[0].text).toBe('Keep me')
+  })
+
+  it('deleteTodo persists removal to localStorage', () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => { result.current.addTodo('Remove from storage') })
+    const id = result.current.todos[0].id
+    act(() => { result.current.deleteTodo(id) })
+    const stored = JSON.parse(localStorage.getItem('todos') ?? '[]')
+    expect(stored).toHaveLength(0)
+  })
 })
