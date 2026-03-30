@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { parseArgs } from './scraper.js';
+import { parseArgs, urlToSlug } from './scraper.js';
 
 describe('parseArgs', () => {
   it('парсит URL и флаг --output', () => {
@@ -74,6 +74,38 @@ describe('parseArgs', () => {
   it('выбрасывает ошибку если флаг --output без значения в конце', () => {
     expect(() => parseArgs(['https://example.com', '--output'])).toThrow(
       'Флаг --output требует значение',
+    );
+  });
+});
+
+describe('urlToSlug', () => {
+  it('возвращает hostname для URL без пути', () => {
+    expect(urlToSlug('https://example.com')).toBe('example.com');
+  });
+
+  it('добавляет путь через дефис', () => {
+    expect(urlToSlug('https://example.com/about')).toBe('example.com-about');
+  });
+
+  it('преобразует вложенный путь', () => {
+    expect(urlToSlug('https://example.com/products/shoes')).toBe(
+      'example.com-products-shoes',
+    );
+  });
+
+  it('игнорирует trailing slash', () => {
+    expect(urlToSlug('https://example.com/')).toBe('example.com');
+  });
+
+  it('игнорирует query string', () => {
+    expect(urlToSlug('https://example.com/page?foo=bar')).toBe(
+      'example.com-page',
+    );
+  });
+
+  it('игнорирует hash', () => {
+    expect(urlToSlug('https://example.com/page#section')).toBe(
+      'example.com-page',
     );
   });
 });

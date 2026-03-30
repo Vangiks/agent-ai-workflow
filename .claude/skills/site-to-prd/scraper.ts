@@ -1,4 +1,4 @@
-import { chromium } from 'playwright';
+import { chromium, type Page } from 'playwright';
 import { mkdir } from 'fs/promises';
 import { resolve, join } from 'path';
 
@@ -50,29 +50,75 @@ export function parseArgs(args: string[]): ParsedArgs {
   };
 }
 
+export function urlToSlug(url: string): string {
+  const parsed = new URL(url);
+  const base = parsed.hostname;
+  const path = parsed.pathname.replace(/\/$/, '');
+  if (!path) return base;
+  const pathSlug = path.replace(/\//g, '-').replace(/^-/, '');
+  return `${base}-${pathSlug}`;
+}
+
+async function autoScroll(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve) => {
+      let totalHeight = 0;
+      const distance = 200;
+      const timer = setInterval(() => {
+        window.scrollBy(0, distance);
+        totalHeight += distance;
+        if (totalHeight >= document.body.scrollHeight) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 50);
+    });
+  });
+}
+
+async function takeScreenshots(
+  url: string,
+  screenshotsDir: string,
+): Promise<void> {
+  const slug = urlToSlug(url);
+
+  const viewports = [
+    { name: 'desktop', width: 1440, height: 900 },
+    { name: 'mobile', width: 375, height: 812 },
+  ] as const;
+
+  for (const viewport of viewports) {
+    const browser = await chromium.launch();
+    const context = await browser.newContext({
+      viewport: { width: viewport.width, height: viewport.height },
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    });
+
+    const page = await context.newPage();
+
+    console.log(`Загружаю (${viewport.name}): ${url}`);
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+
+    await autoScroll(page);
+    await page.waitForLoadState('networkidle');
+
+    const screenshotPath = join(screenshotsDir, `${slug}-${viewport.name}.png`);
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    console.log(`Скриншот сохранён: ${screenshotPath}`);
+
+    await browser.close();
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const outputDir = resolve(args.output);
+  const screenshotsDir = join(outputDir, 'screenshots');
 
-  await mkdir(outputDir, { recursive: true });
+  await mkdir(screenshotsDir, { recursive: true });
 
-  const browser = await chromium.launch();
-  const context = await browser.newContext({
-    viewport: { width: 1280, height: 800 },
-    userAgent:
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  });
-
-  const page = await context.newPage();
-
-  console.log(`Загружаю: ${args.url}`);
-  await page.goto(args.url, { waitUntil: 'networkidle', timeout: 30000 });
-
-  const screenshotPath = join(outputDir, 'desktop.png');
-  await page.screenshot({ path: screenshotPath, fullPage: false });
-  console.log(`Скриншот сохранён: ${screenshotPath}`);
-
-  await browser.close();
+  await takeScreenshots(args.url, screenshotsDir);
 }
 
 // Запускаем main только при прямом вызове скрипта
