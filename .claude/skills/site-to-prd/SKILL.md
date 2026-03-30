@@ -32,7 +32,8 @@
 7. Извлекает `<meta>` теги, Open Graph данные и favicon → `meta.json`
 8. Скачивает все изображения в `assets/` с оригинальными именами файлов → `images.json`
 9. Сохраняет `pages.json` с массивом страниц (url, title, sections)
-10. Для стартовой страницы делает два full-page скриншота:
+10. Извлекает computed CSS цвета и типографику со всех страниц → `colors.json`, `typography.json`
+11. Для стартовой страницы делает два full-page скриншота:
     - Desktop (1440px): `screenshots/{slug}-desktop.png`
     - Mobile (375px): `screenshots/{slug}-mobile.png`
 11. Перед каждым скриншотом выполняет авто-скролл до конца страницы и ожидает `networkidle`
@@ -44,6 +45,8 @@
 ├── pages.json          — массив страниц с секциями Tilda
 ├── meta.json           — title, description, keywords, viewport, OG, favicon
 ├── images.json         — маппинг URL → локальные пути, alt, размеры
+├── colors.json         — уникальные цвета сайта в HEX, отсортированные по частоте
+├── typography.json     — шрифты: название, размеры, weight, line-height, next/font/google код
 ├── assets/             — скачанные изображения
 │   ├── logo.png
 │   └── ...
@@ -87,6 +90,62 @@
 - `stackRecommendation` — рекомендация из стека (shadcn, Framer Motion и т.д.)
 - `domDescription` — описание DOM структуры (только для блоков типа `custom` и нераспознанных)
 
+
+## Формат colors.json
+
+```json
+[
+  {
+    "hex": "#ffffff",
+    "count": 42,
+    "contexts": ["background-color", "color"]
+  },
+  {
+    "hex": "#000000",
+    "count": 28,
+    "contexts": ["color"]
+  }
+]
+```
+
+### Поля ColorEntry
+
+- `hex` — цвет в HEX формате (напр. `#ff5733`)
+- `count` — суммарное количество вхождений на всех страницах
+- `contexts` — список CSS свойств использования: `color`, `background-color`, `border-color`
+
+## Формат typography.json
+
+```json
+[
+  {
+    "fontFamily": "Inter",
+    "isGoogleFont": true,
+    "sizes": ["14px", "16px", "24px"],
+    "weights": [400, 700],
+    "lineHeights": ["20px", "24px"],
+    "nextFontCode": "import { Inter } from 'next/font/google'\n\nexport const inter = Inter({\n  subsets: ['latin'],\n  weight: ['400', '700'],\n})"
+  },
+  {
+    "fontFamily": "Arial",
+    "isGoogleFont": false,
+    "sizes": ["12px", "14px"],
+    "weights": [400],
+    "lineHeights": [],
+    "nextFontCode": null
+  }
+]
+```
+
+### Поля TypographyEntry
+
+- `fontFamily` — название шрифта (первый из font-family списка без кавычек)
+- `isGoogleFont` — является ли Google Font
+- `sizes` — все уникальные размеры шрифта в пикселях
+- `weights` — все уникальные веса шрифта (числа)
+- `lineHeights` — все уникальные межстрочные интервалы (кроме `normal`)
+- `nextFontCode` — готовый код подключения через `next/font/google` (только для Google Fonts)
+
 ## Инструкция для Claude
 
 Когда пользователь вызывает `/site-to-prd`, выполни следующее:
@@ -100,6 +159,6 @@
    ```
    npx tsx .claude/skills/site-to-prd/scraper.ts <URL> --output <папка> [--depth <глубина>]
    ```
-4. Сообщи пользователю где сохранены результаты: `pages.json`, `meta.json`, `images.json`, скриншоты (папка `<output>/screenshots/`), изображения (папка `<output>/assets/`)
+4. Сообщи пользователю где сохранены результаты: `pages.json`, `meta.json`, `images.json`, `colors.json`, `typography.json`, скриншоты (папка `<output>/screenshots/`), изображения (папка `<output>/assets/`)
 5. Проанализируй `pages.json` — покажи пользователю структуру страниц и предложенные компоненты
 6. Если нужно сгенерировать PRD — проанализируй pages.json, meta.json и скриншоты, создай документ в папке `--output/prd.md`
