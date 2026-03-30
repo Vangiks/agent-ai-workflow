@@ -19,7 +19,7 @@ export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
         {todo.text}
       </span>
       <button
-        aria-label="Удалить задачу"
+        aria-label="Delete todo"
         onClick={() => onDelete(todo.id)}
         className="opacity-0 group-hover:opacity-100 rounded p-1 text-muted-foreground hover:text-destructive transition-opacity"
       >

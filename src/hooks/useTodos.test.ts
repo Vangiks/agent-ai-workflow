@@ -72,17 +72,18 @@ describe('useTodos', () => {
     expect(result.current.todos[0].text).toBe('Existing')
   })
 
-  it('toggleTodo переключает completed', () => {
+  it('toggleTodo flips completed status', () => {
     const { result } = renderHook(() => useTodos())
-    act(() => { result.current.addTodo('Task') })
+    act(() => { result.current.addTodo('Toggle me') })
     const id = result.current.todos[0].id
+    expect(result.current.todos[0].completed).toBe(false)
     act(() => { result.current.toggleTodo(id) })
     expect(result.current.todos[0].completed).toBe(true)
     act(() => { result.current.toggleTodo(id) })
     expect(result.current.todos[0].completed).toBe(false)
   })
 
-  it('toggleTodo сохраняет изменение в localStorage', () => {
+  it('toggleTodo persists to localStorage', () => {
     const { result } = renderHook(() => useTodos())
     act(() => { result.current.addTodo('Persist toggle') })
     const id = result.current.todos[0].id
@@ -91,30 +92,75 @@ describe('useTodos', () => {
     expect(stored[0].completed).toBe(true)
   })
 
-  it('deleteTodo удаляет задачу из списка', () => {
+  it('deleteTodo removes the todo', () => {
     const { result } = renderHook(() => useTodos())
-    act(() => { result.current.addTodo('To delete') })
-    const id = result.current.todos[0].id
-    act(() => { result.current.deleteTodo(id) })
-    expect(result.current.todos).toHaveLength(0)
+    act(() => { result.current.addTodo('Delete me') })
+    act(() => { result.current.addTodo('Keep me') })
+    const deleteId = result.current.todos.find((t) => t.text === 'Delete me')!.id
+    act(() => { result.current.deleteTodo(deleteId) })
+    expect(result.current.todos).toHaveLength(1)
+    expect(result.current.todos[0].text).toBe('Keep me')
   })
 
-  it('deleteTodo удаляет задачу из localStorage', () => {
+  it('deleteTodo persists removal to localStorage', () => {
     const { result } = renderHook(() => useTodos())
-    act(() => { result.current.addTodo('To delete') })
+    act(() => { result.current.addTodo('Remove from storage') })
     const id = result.current.todos[0].id
     act(() => { result.current.deleteTodo(id) })
     const stored = JSON.parse(localStorage.getItem('todos') ?? '[]')
     expect(stored).toHaveLength(0)
   })
 
-  it('deleteTodo удаляет только нужную задачу', () => {
-    const { result } = renderHook(() => useTodos())
-    act(() => { result.current.addTodo('Keep') })
-    act(() => { result.current.addTodo('Delete') })
-    const idToDelete = result.current.todos[0].id // 'Delete' prepended
-    act(() => { result.current.deleteTodo(idToDelete) })
-    expect(result.current.todos).toHaveLength(1)
-    expect(result.current.todos[0].text).toBe('Keep')
+  describe('filter', () => {
+    it('returns "all" as default filter', () => {
+      const { result } = renderHook(() => useTodos())
+      expect(result.current.filter).toBe('all')
+    })
+
+    it('setFilter changes the active filter', () => {
+      const { result } = renderHook(() => useTodos())
+      act(() => { result.current.setFilter('active') })
+      expect(result.current.filter).toBe('active')
+      act(() => { result.current.setFilter('completed') })
+      expect(result.current.filter).toBe('completed')
+      act(() => { result.current.setFilter('all') })
+      expect(result.current.filter).toBe('all')
+    })
+
+    it('filteredTodos returns all todos when filter is "all"', () => {
+      const { result } = renderHook(() => useTodos())
+      act(() => { result.current.addTodo('Active') })
+      act(() => { result.current.addTodo('Done') })
+      act(() => { result.current.toggleTodo(result.current.todos.find(t => t.text === 'Done')!.id) })
+      expect(result.current.filteredTodos).toHaveLength(2)
+    })
+
+    it('filteredTodos returns only active todos when filter is "active"', () => {
+      const { result } = renderHook(() => useTodos())
+      act(() => { result.current.addTodo('Active') })
+      act(() => { result.current.addTodo('Done') })
+      act(() => { result.current.toggleTodo(result.current.todos.find(t => t.text === 'Done')!.id) })
+      act(() => { result.current.setFilter('active') })
+      expect(result.current.filteredTodos).toHaveLength(1)
+      expect(result.current.filteredTodos[0].text).toBe('Active')
+    })
+
+    it('filteredTodos returns only completed todos when filter is "completed"', () => {
+      const { result } = renderHook(() => useTodos())
+      act(() => { result.current.addTodo('Active') })
+      act(() => { result.current.addTodo('Done') })
+      act(() => { result.current.toggleTodo(result.current.todos.find(t => t.text === 'Done')!.id) })
+      act(() => { result.current.setFilter('completed') })
+      expect(result.current.filteredTodos).toHaveLength(1)
+      expect(result.current.filteredTodos[0].text).toBe('Done')
+    })
+
+    it('filter is not saved to localStorage', () => {
+      const { result } = renderHook(() => useTodos())
+      act(() => { result.current.setFilter('active') })
+      // filter should not appear in localStorage
+      const stored = localStorage.getItem('todos')
+      expect(stored).not.toContain('active')
+    })
   })
 })
