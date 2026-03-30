@@ -32,4 +32,48 @@ describe('parseArgs', () => {
   it('выбрасывает ошибку если нет --output', () => {
     expect(() => parseArgs(['https://example.com'])).toThrow();
   });
+
+  it('выбрасывает ошибку если --depth не число', () => {
+    expect(() =>
+      parseArgs(['https://example.com', '--output', './out', '--depth', 'abc']),
+    ).toThrow('--depth должен быть положительным целым числом');
+  });
+
+  it('выбрасывает ошибку если --depth <= 0', () => {
+    expect(() =>
+      parseArgs(['https://example.com', '--output', './out', '--depth', '0']),
+    ).toThrow('--depth должен быть положительным целым числом');
+    expect(() =>
+      parseArgs(['https://example.com', '--output', './out', '--depth', '-1']),
+    ).toThrow('--depth должен быть положительным целым числом');
+  });
+
+  it('выбрасывает ошибку при пустом массиве аргументов', () => {
+    expect(() => parseArgs([])).toThrow();
+  });
+
+  it('выбрасывает ошибку при неизвестном флаге', () => {
+    expect(() =>
+      parseArgs(['https://example.com', '--output', './out', '--foo', 'bar']),
+    ).toThrow('Неизвестный флаг: --foo');
+  });
+
+  it('парсит аргументы в любом порядке', () => {
+    const result = parseArgs([
+      '--output',
+      './out',
+      '--depth',
+      '2',
+      'https://example.com',
+    ]);
+    expect(result.url).toBe('https://example.com');
+    expect(result.output).toBe('./out');
+    expect(result.depth).toBe(2);
+  });
+
+  it('выбрасывает ошибку если флаг --output без значения в конце', () => {
+    expect(() => parseArgs(['https://example.com', '--output'])).toThrow(
+      'Флаг --output требует значение',
+    );
+  });
 });

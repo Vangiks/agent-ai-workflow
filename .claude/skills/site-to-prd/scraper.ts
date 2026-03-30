@@ -8,20 +8,25 @@ export interface ParsedArgs {
   depth: number;
 }
 
+const KNOWN_FLAGS = new Set(['--output', '--depth']);
+
 export function parseArgs(args: string[]): ParsedArgs {
   const flags: Record<string, string> = {};
   let url: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
-    if (arg === '--output' || arg === '--depth') {
+    if (arg.startsWith('--')) {
+      if (!KNOWN_FLAGS.has(arg)) {
+        throw new Error(`Неизвестный флаг: ${arg}`);
+      }
       const next = args[i + 1];
       if (!next || next.startsWith('--')) {
         throw new Error(`Флаг ${arg} требует значение`);
       }
       flags[arg.slice(2)] = next;
       i++;
-    } else if (!arg.startsWith('--')) {
+    } else {
       url = arg;
     }
   }
@@ -33,10 +38,15 @@ export function parseArgs(args: string[]): ParsedArgs {
     throw new Error('Необходимо указать флаг --output');
   }
 
+  const depth = flags['depth'] !== undefined ? parseInt(flags['depth'], 10) : 1;
+  if (isNaN(depth) || depth < 1) {
+    throw new Error('--depth должен быть положительным целым числом');
+  }
+
   return {
     url,
     output: flags['output'],
-    depth: flags['depth'] !== undefined ? parseInt(flags['depth'], 10) : 1,
+    depth,
   };
 }
 
