@@ -1,9 +1,18 @@
+import { useTodos } from './hooks/useTodos'
+import { TodoInput } from './components/TodoInput'
+import { TodoList } from './components/TodoList'
+
 function App() {
+  const { todos, addTodo } = useTodos()
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-foreground">Agent AI Workflow</h1>
-        <p className="mt-4 text-muted-foreground">Ready to build</p>
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-xl px-4 py-12">
+        <h1 className="mb-8 text-3xl font-bold text-foreground">Список задач</h1>
+        <div className="space-y-4">
+          <TodoInput onAdd={addTodo} />
+          <TodoList todos={todos} />
+        </div>
       </div>
     </div>
   )
