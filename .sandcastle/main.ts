@@ -21,6 +21,7 @@
  */
 
 import * as sandcastle from '@ai-hero/sandcastle';
+import { execSync } from 'child_process';
 
 /*
  * ---------------------------------------------------------------------------
@@ -109,6 +110,17 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 
   for (const issue of issues) {
     console.log(`  #${issue.number}: ${issue.title} → ${issue.branch}`);
+  }
+
+  // Создаём ветки заранее, чтобы Sandcastle мог сделать worktree без ошибок.
+  for (const issue of issues) {
+    const branchExists = execSync(`git branch --list ${issue.branch}`)
+      .toString()
+      .trim();
+    if (!branchExists) {
+      execSync(`git branch ${issue.branch}`);
+      console.log(`  Ветка создана: ${issue.branch}`);
+    }
   }
 
   /*
