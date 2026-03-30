@@ -40,7 +40,7 @@ const MAX_ITERATIONS = 10;
  * npm install ensures the sandbox always has fresh dependencies.
  */
 const hooks = {
-  onSandboxReady: [{ command: 'npm install' }],
+  onSandboxReady: [{ command: 'pnpm install' }],
 };
 
 /*
