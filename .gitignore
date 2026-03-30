@@ -4,6 +4,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.pnpm-store
 lerna-debug.log*
 
 node_modules
@@ -30,28 +31,9 @@ functions/build/
 .env
 .dev.vars
 *.vars
-.wrangler
-_worker.bundle
-
-Modelfile
-modelfiles
-
-# docs ignore
-site
-
-# commit file ignore
-app/commit.json
-changelogUI.md
-docs/instructions/Roadmap.md
-.cursorrules
-*.md
-!docs/plans/**
-!.planning/**
-!.paul/**
-.qodo
-
 
 # users
 .user-samples.worktrees/
 .worktrees/
 .playground/
+
