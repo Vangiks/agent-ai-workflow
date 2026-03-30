@@ -1,11 +1,17 @@
 import { chromium } from 'playwright';
-import { mkdir } from 'fs/promises';
+import { mkdir, writeFile } from 'fs/promises';
 import { resolve, join } from 'path';
 
 export interface ParsedArgs {
   url: string;
   output: string;
   depth: number;
+}
+
+export interface PageResult {
+  url: string;
+  depth: number;
+  title: string;
 }
 
 const KNOWN_FLAGS = new Set(['--output', '--depth']);
@@ -38,7 +44,7 @@ export function parseArgs(args: string[]): ParsedArgs {
     throw new Error('Необходимо указать флаг --output');
   }
 
-  const depth = flags['depth'] !== undefined ? parseInt(flags['depth'], 10) : 1;
+  const depth = flags['depth'] !== undefined ? parseInt(flags['depth'], 10) : 2;
   if (isNaN(depth) || depth < 1) {
     throw new Error('--depth должен быть положительным целым числом');
   }
@@ -48,6 +54,71 @@ export function parseArgs(args: string[]): ParsedArgs {
     output: flags['output'],
     depth,
   };
+}
+
+export function extractInternalLinks(baseUrl: string, hrefs: string[]): string[] {
+  const base = new URL(baseUrl);
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const href of hrefs) {
+    if (!href || href.startsWith('#') || href.startsWith('javascript:')) {
+      continue;
+    }
+
+    let resolved: URL;
+    try {
+      resolved = new URL(href, base);
+    } catch {
+      continue;
+    }
+
+    if (resolved.origin !== base.origin) {
+      continue;
+    }
+
+    // Remove fragment
+    resolved.hash = '';
+    const normalized = resolved.toString();
+
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  }
+
+  return result;
+}
+
+export async function bfsCrawl(
+  startUrl: string,
+  maxDepth: number,
+  fetchPage: (url: string) => Promise<{ title: string; links: string[] }>,
+): Promise<PageResult[]> {
+  const visited = new Set<string>();
+  const pages: PageResult[] = [];
+  const queue: Array<{ url: string; depth: number }> = [{ url: startUrl, depth: 1 }];
+
+  visited.add(startUrl);
+
+  while (queue.length > 0) {
+    const item = queue.shift()!;
+    const { url, depth } = item;
+
+    const { title, links } = await fetchPage(url);
+    pages.push({ url, depth, title });
+
+    if (depth < maxDepth) {
+      for (const link of links) {
+        if (!visited.has(link)) {
+          visited.add(link);
+          queue.push({ url: link, depth: depth + 1 });
+        }
+      }
+    }
+  }
+
+  return pages;
 }
 
 async function main() {
@@ -63,14 +134,33 @@ async function main() {
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   });
 
-  const page = await context.newPage();
+  const pages = await bfsCrawl(args.url, args.depth, async (url) => {
+    const page = await context.newPage();
+    console.log(`Загружаю: ${url}`);
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
 
-  console.log(`Загружаю: ${args.url}`);
-  await page.goto(args.url, { waitUntil: 'networkidle', timeout: 30000 });
+    const title = await page.title();
+    const hrefs = await page.$$eval('a[href]', (anchors) =>
+      anchors.map((a) => (a as HTMLAnchorElement).href),
+    );
+    const links = extractInternalLinks(url, hrefs);
 
+    await page.close();
+    return { title, links };
+  });
+
+  // Take screenshot of start page
+  const startPage = await context.newPage();
+  await startPage.goto(args.url, { waitUntil: 'networkidle', timeout: 30000 });
   const screenshotPath = join(outputDir, 'desktop.png');
-  await page.screenshot({ path: screenshotPath, fullPage: false });
+  await startPage.screenshot({ path: screenshotPath, fullPage: false });
   console.log(`Скриншот сохранён: ${screenshotPath}`);
+  await startPage.close();
+
+  // Save pages.json
+  const pagesJsonPath = join(outputDir, 'pages.json');
+  await writeFile(pagesJsonPath, JSON.stringify(pages, null, 2), 'utf-8');
+  console.log(`pages.json сохранён: ${pagesJsonPath} (${pages.length} страниц)`);
 
   await browser.close();
 }
