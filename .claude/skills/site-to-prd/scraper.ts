@@ -1,3 +1,11 @@
+import {
+  normalizeColorOccurrences,
+  mergeColorEntries,
+  normalizeTypography,
+  mergeTypographyEntries,
+  type RawColorOccurrence,
+  type RawFontOccurrence,
+} from './design-tokens.js';
 import { chromium, type Page } from 'playwright';
 import { mkdir, writeFile } from 'fs/promises';
 import { resolve, join } from 'path';
@@ -460,6 +468,63 @@ async function downloadImages(images: RawImage[], assetsDir: string): Promise<Im
   return entries;
 }
 
+
+interface RawDesignTokensFromPage {
+  colors: RawColorOccurrence[];
+  fonts: RawFontOccurrence[];
+}
+
+/**
+ * Извлекает computed CSS цвета и типографику со страницы через Playwright evaluate.
+ * Собирает уникальные computed styles всех элементов, дедуплицирует в браузере.
+ */
+async function extractDesignTokensFromPage(page: Page): Promise<RawDesignTokensFromPage> {
+  return page.evaluate(() => {
+    const COLOR_PROPS = [
+      { prop: 'color', context: 'color' },
+      { prop: 'backgroundColor', context: 'background-color' },
+      { prop: 'borderTopColor', context: 'border-color' },
+    ];
+
+    const colorMap = new Map<string, number>(); // "value|context" -> count
+    const fontKeys = new Set<string>();
+    const fontEntries: Array<{ family: string; size: string; weight: string; lineHeight: string }> = [];
+
+    const elements = document.querySelectorAll('*');
+    for (const el of Array.from(elements)) {
+      const style = window.getComputedStyle(el);
+
+      // Цвета
+      for (const { prop, context } of COLOR_PROPS) {
+        const value = style[prop as keyof CSSStyleDeclaration] as string;
+        if (!value || value === 'rgba(0, 0, 0, 0)' || value === 'transparent') continue;
+        const key = `${value}|${context}`;
+        colorMap.set(key, (colorMap.get(key) ?? 0) + 1);
+      }
+
+      // Типографика
+      const family = style.fontFamily;
+      const size = style.fontSize;
+      const weight = style.fontWeight;
+      const lineHeight = style.lineHeight;
+      if (family) {
+        const fontKey = `${family}|${size}|${weight}|${lineHeight}`;
+        if (!fontKeys.has(fontKey)) {
+          fontKeys.add(fontKey);
+          fontEntries.push({ family, size, weight, lineHeight });
+        }
+      }
+    }
+
+    const colors = Array.from(colorMap.entries()).map(([key, count]) => {
+      const sepIdx = key.indexOf('|');
+      return { value: key.slice(0, sepIdx), context: key.slice(sepIdx + 1), count };
+    });
+
+    return { colors, fonts: fontEntries };
+  });
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const outputDir = resolve(args.output);
@@ -478,6 +543,8 @@ async function main() {
 
   const allPageMetas: MetaData[] = [];
   let allRawImages: RawImage[] = [];
+  let allRawColors: RawColorOccurrence[] = [];
+  let allRawFonts: RawFontOccurrence[] = [];
 
   const crawlResults = await bfsCrawl(args.url, args.depth, async (url) => {
     const page = await context.newPage();
@@ -495,6 +562,10 @@ async function main() {
 
     const rawImages = await extractImagesFromPage(page);
     allRawImages = allRawImages.concat(rawImages);
+
+    const rawTokens = await extractDesignTokensFromPage(page);
+    allRawColors = allRawColors.concat(rawTokens.colors);
+    allRawFonts = allRawFonts.concat(rawTokens.fonts);
 
     await page.close();
     return { title, links };
@@ -535,6 +606,18 @@ async function main() {
   const mergedMeta = mergeMeta(allPageMetas);
   await writeFile(join(outputDir, 'meta.json'), JSON.stringify(mergedMeta, null, 2));
   console.log(`meta.json сохранён: ${join(outputDir, 'meta.json')}`);
+
+  // Сохраняем colors.json
+  const colorEntries = normalizeColorOccurrences(allRawColors);
+  const mergedColors = mergeColorEntries([colorEntries]);
+  await writeFile(join(outputDir, 'colors.json'), JSON.stringify(mergedColors, null, 2));
+  console.log(`colors.json сохранён: ${join(outputDir, 'colors.json')} (${mergedColors.length} цветов)`);
+
+  // Сохраняем typography.json
+  const typographyEntries = normalizeTypography(allRawFonts);
+  const mergedTypography = mergeTypographyEntries([typographyEntries]);
+  await writeFile(join(outputDir, 'typography.json'), JSON.stringify(mergedTypography, null, 2));
+  console.log(`typography.json сохранён: ${join(outputDir, 'typography.json')} (${mergedTypography.length} шрифтов)`);
 
   // Делаем responsive скриншоты стартовой страницы
   await takeScreenshots(args.url, screenshotsDir);
