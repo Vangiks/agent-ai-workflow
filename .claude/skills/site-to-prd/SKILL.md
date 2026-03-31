@@ -50,9 +50,15 @@
 ├── assets/             — скачанные изображения
 │   ├── logo.png
 │   └── ...
-└── screenshots/
-    ├── {slug}-desktop.png
-    └── {slug}-mobile.png
+├── screenshots/
+│   ├── {slug}-desktop.png
+│   └── {slug}-mobile.png
+└── prd/                — сгенерированный PRD (шаг 6)
+    ├── PRD.md
+    ├── design-tokens.md
+    ├── components.md
+    ├── pages.md
+    └── migration-checklist.md
 ```
 
 ## Формат pages.json
@@ -161,4 +167,13 @@
    ```
 4. Сообщи пользователю где сохранены результаты: `pages.json`, `meta.json`, `images.json`, `colors.json`, `typography.json`, скриншоты (папка `<output>/screenshots/`), изображения (папка `<output>/assets/`)
 5. Проанализируй `pages.json` — покажи пользователю структуру страниц и предложенные компоненты
-6. Если нужно сгенерировать PRD — проанализируй pages.json, meta.json и скриншоты, создай документ в папке `--output/prd.md`
+6. Сгенерируй PRD папку командой:
+   ```
+   npx tsx .claude/skills/site-to-prd/prd-generator.ts --output <папка>
+   ```
+7. Сообщи пользователю о созданных файлах в `<папка>/prd/`:
+   - `PRD.md` — обзор сайта, ссылки на скриншоты
+   - `design-tokens.md` — цвета (Tailwind config), типографика (next/font/google)
+   - `components.md` — маппинг Tilda→NextJS компонентов
+   - `pages.md` — структура страниц, App Router роутинг
+   - `migration-checklist.md` — чеклист с SEO данными из meta.json
